@@ -32,9 +32,9 @@ run the whole system, so the same crane path setting on all these four machines 
 > git pull
 
 
-1. Set env vars in ~/.bashrc.
-export MSMR_ROOT=<absolute path of crane>
-export XTERN_ROOT=<absolute path of crane/xtern>
+1. Set env vars in ~/.bashrc.  
+export MSMR_ROOT=\<absolute path of crane\>  
+export XTERN_ROOT=\<absolute path of crane/xtern\>  
 export LD_LIBRARY_PATH=$MSMR_ROOT/libevent_paxos/.local/lib:$LD_LIBRARY_PATH
 
 
