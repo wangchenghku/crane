@@ -172,6 +172,15 @@ Run the apache with proxy (paxos) only.
 Run the apache with DMT (Parrot) only.
 > ./new-run.sh configs/apache.sh no_build xtern_only 1
 
+proxy:  
+`sudo rm -rf /dev/shm/* /tmp/mysql.sock; rm -rf ./.db ./log; mkdir ./log && \$SERVER_PROGRAM -n %d -r -m %s -c $CONFIG_FILE -l ./log 1> ./log/node_%d_stdout 2>./log/node_%d_stderr &`
+
+apache:  
+`$MSMR_ROOT/apps/apache/install/bin/apachectl -k start`
+
+client:  
+`LD_PRELOAD=$MSMR_ROOT/libevent_paxos/client-ld-preload/libclilib.so ab -n 1000 -c 8 http://10.22.1.2:9000/test.php`
+
 Below are one sample output from the ab server, if you ran any one of the above "new-run.sh" commands.
 ===============================
 This is ApacheBench, Version 2.3 <$Revision: 655654 $>
