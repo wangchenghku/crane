@@ -619,6 +619,10 @@ static void leader_try_to_execute(consensus_component* comp){
             view_stamp temp = ltovs(index);
             SYS_LOG(comp,"Node %d : View Stamp %u : %u Has Reached Quorum.\n",
                     comp->node_id,temp.view_id,temp.req_id);
+            struct timeval tv;
+            gettimeofday(&tv,0);
+            unsigned long e_usec = ((tv.tv_sec*1000000)+tv.tv_usec)-((record_data->created_time.tv_sec*1000000)+record_data->created_time.tv_usec);
+            fprintf(comp->sys_log_file,"%lu\n",e_usec);
             
             SYS_LOG(comp,"Before Node %d Inc Execute  %u : %u.\n",
                     comp->node_id,
