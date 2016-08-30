@@ -40,7 +40,6 @@
 
 #define REQ_LOG(x,args...) {if((x)->req_log){safe_rec_log(((x)->sys_log_file),args)}}
 
-// verbose
 #define PROXY_ENTER(x) {SYS_LOG(x,"PROXY : Entering %s\n",__PRETTY_FUNCTION__)}
 
 #define PROXY_LEAVE(x) {SYS_LOG(x,"PROXY : Leaving %s\n",__PRETTY_FUNCTION__)}
@@ -51,6 +50,7 @@
 #define CONSENSUS_LEAVE(x) {if(x->sys_log_file){rec_log(((x)->sys_log_file),"CONSENSUS : Leaving %s\n",__PRETTY_FUNCTION__)}}
 #define CONSENSUS_ERR_LEAVE(x) {if(x->sys_log_file){rec_log(((x)->sys_log_file),"CONSENSUS : Error Occurred,Before Leaving %s\n",__PRETTY_FUNCTION__)}}
 
+// verbose
 #define DEBUG_ENTER debug_log("Entering %s\n",__PRETTY_FUNCTION__)
 #define DEBUG_LEAVE debug_log("Leaving %s\n",__PRETTY_FUNCTION__)
 #define DEBUG_LEAVE_ERR debug_log("Leaving %s with error\n",__PRETTY_FUNCTION__)
