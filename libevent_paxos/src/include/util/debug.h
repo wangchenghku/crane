@@ -40,6 +40,7 @@
 
 #define REQ_LOG(x,args...) {if((x)->req_log){safe_rec_log(((x)->sys_log_file),args)}}
 
+// verbose
 #define PROXY_ENTER(x) {SYS_LOG(x,"PROXY : Entering %s\n",__PRETTY_FUNCTION__)}
 
 #define PROXY_LEAVE(x) {SYS_LOG(x,"PROXY : Leaving %s\n",__PRETTY_FUNCTION__)}
