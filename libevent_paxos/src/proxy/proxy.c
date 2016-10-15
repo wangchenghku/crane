@@ -85,6 +85,7 @@ typedef struct signal_comp_st{
 
 //implementation
 
+// gettimeofday() tv_sec 1476528755 (1011000000000100000101001110011, 31-bit)
 static hk_t gen_key(nid_t node_id,nc_t node_count,sec_t time){
     hk_t key = time;
     key |= ((hk_t)node_id<<52);
