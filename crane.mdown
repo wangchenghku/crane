@@ -1,0 +1,96 @@
+# Paxos Made Transparent
+## Introduction
+CRANE schedules synchronization using *deterministic multithreading (DMT)*. (same input -> same schedule)
+
+![deterministic multithreading](dmt.png)
+
+## CRANE Overview
+### Architecture
+Figure 1 shows a CRANE instance running on the primary.
+
+![The CRANE Architecture. CRANE components are shaded (and in green).](crane_architecture.png)
+
+The time bubbling component sits between the proxy and the DMT's processes, and it is invoked on two conditions. Second, if the DMT component has not received any input request from the proxy for a physical duration *W<sub>timeout</sub>*, a time bubble insertion is invoked as the boundary of two request bursts. To ensure the same sequence of inserted time bubbles across replicas, the same PAXOS consensus as that for client socket calls is invoked. For each time bubble, each replica's DMT scheduler promises to run a number of *N<sub>clock</sub>* synchronizations and not to admit any client socket call.
+
+### Example
+Let's say a CRANE system with three replicas is set up, and replica runs this server; two clients start simultaneously, and each sends a HTTP PUT and GET request respectively on the same URL "a.php" to the primary.
+
+This server has three major sources of nondeterminism, which can easily cause its execution states across replicas to diverge. The first source (for short, *S*<sub>1</sub>) is that clients' requests may arrive at different replicas in different orders. Second (*S*<sub>2</sub>), within the server, the nondeterministic Pthreads synchronization may easily lead to different schedules.
+
+Third (*S*<sub>3</sub>), even if clients' requests arrive at different replicas in the same order, the physical time interval of each two consecutive requests can still be largely different across replicas depending on each request's physical time. This variance may cause client socket calls to be admitted at inconsistent logical clocks across replica and lead to divergent execution states.
+
+**Figure 4: *HTTP GET request got the valid page due to the two requests' large arrival interval***
+```
+//    worker 1                 worker 2
+1:  recv("PUT a.php");
+2:  lock(m);
+3:  ret = process_req();
+4:  unlock(m);
+5:  send(ret);
+6:                           recv("GET a.php");
+7:                           lock(m);
+8:                           ret = process_req();
+9:                           unlock(m);
+10:                          send(ret); //200 OK
+```
+**Figure 5: *HTTP GET request didn't get the page due to the two requests' small arrival interval***
+```
+//    worker 1                  worker 2
+1:  recv("PUT a.php");
+2:                            recv("GET a.php");
+3:                            lock(m);
+4:                            ret = process_req();
+5:                            unlock(m);
+6:  lock(m);
+7:  ret = process_req();
+8:  unlock(m);
+9:  send(ret);
+10:                           send(ret); //200 OK
+```
+
+For instance, Figure 4 and Figure 5 show two replicas' schedules, and each is a total order of executed socket calls or Pthreads synchronization in workers. Although the PUT and GET requests arrive at the two replicas in the same order, these requests' interval in the first schedule (Figure 4) is much longer than that in the second one, causing the first one to return a page and the second one "404 Not Found".
+
+CRANE works as follows. First, depending on the order the primary's proxy receives these requests, CRANE eliminates *S*<sub>1</sub> with PAXOS and ensures the same request sequence for all replicas. Second, CRANE'S DMT scheduler eliminates *S*<sub>2</sub> by ensuring a deterministic order of Pthreads synchronization.
+
+## CRANE's Synchronization Wrappers for a Server
+### CRANE's Synchronization Wrappers for a Server
+
+**Figure 10: *CRANE's `check_add_timebubble()` function.***
+```
+1:  void check_add_timebubble(mu) {
+2:     while (paxos_seq.empty()) {
+3:        usleep(...);
+4:        request_time_bubble();
+5:     }
+6:     if (paxos_seq.head().type == TIME_BUBBLE)
+7:        paxos_seq.head().decrease();
+8:     else
+9:        DMT.signal(paxos_seq.head());
+10: }
+```
+**Figure 11: *CRANE's wrapper for `recv()`.***
+```
+1:  int recv_wrapper(sockfd, ...) {
+2:     DMT.get_turn();
+3:     DMT.wait(sockfd);
+4:     int nbytes = recv(sockfd, ...);
+5:     paxos_seq.dequeue(nbytes);
+6:     DMT.put_turn();
+7:     return nbytes;
+8:  }
+```
+
+An important data structure in CRANE's wrapper is the PAXOS sequence which contains clients' socket calls and inserted time bubbles. This sequence sits between the proxy and the server's process, and it is implemented with Boost shared memory. CRANE uses `lockf()` to ensure mutual exclusion on this sequence because the two processes may concurrently manipulate this sequence.
+
+Figure 11 shows CRANE's wrapper for the `recv()` call. This wrapper ensures that the `recv()` calls of server programs across replicas return at consistent logical times. The other blocking socket calls' wrappers are similar. A thread calling `recv()` in CRANE simply calls `get_turn()` and blocks on the socket descriptor using PARROT's `wait()` primitive. When a client `send()` call that matches this `recv()` becomes the head of the PAXOS sequence, the `pthread_mutex_lock()` wrappers wakes up the server thread blocking on `recv()` with the `signal()` call at Line 9 in Figure 10. The waken up thread dequeues a number of matching `send()` calls from the PAXOS sequence according to the actual bytes received.
+
+## The Time Bubbling Technique
+First, CRANE uses PAXOS to ensure the same sequence of client socket calls as well as inserted time bubbles as a "PAXOS request sequence" for each replica. Second, CRANE uses DMT to guarantee that it only ticks logical clocks (i.e., schedules Pthreads synchronizations or socket operations) when this sequence is not empty. Third, the time bubbling technique ensures that this sequence is not empty, otherwise it inserts a time bubble.
+
+Each replica's DMT just waits for a physical duration *W<sub>timeout</sub>*, if no further requests come, (1) the DMT requests its own proxy to insert a time bubble. (2) The proxy then checks whether it sees itself as the primary in the PAXOS protocol. If so, it asks (3) the consensus component to invoke consensus on whether inserting this bubble; otherwise it drops this request. After a consensus on this bubble insertion is reached, (4) each machine's proxy simply inserts the bubble into the PAXOS sequence, granting *N<sub>clock</sub>* logical clocks to the DMT scheduler.
+
+## Evaluation
+### Sensitivity of Time Bubble Parameters
+The two parameters *W<sub>timeout</sub>* and *N<sub>clock</sub>* for time bubbling have trade-off performance. This trade-off also depends on each server program as well as its performance workload. A smaller *W<sub>timeout</sub>* means the DMT scheduler can wait less time and then proceed with granted logical clocks with inserted time bubbles, but it also means that more bubbles and thus more PAXOS consensus are involved. A smaller value also means time bubbling runs similar to a per-request consensus approach.
+
+The *N<sub>clock</sub>* parameter also faces trade-off on performance. A smaller value means that servers can exhaust clocks in a time bubble sooner, but if a server does lots of Pthreads synchronizations to process a request, more time bubbles and thus more PAXOS consensus are involved.
