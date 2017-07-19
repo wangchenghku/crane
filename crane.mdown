@@ -91,6 +91,6 @@ Each replica's DMT just waits for a physical duration *W<sub>timeout</sub>*, if 
 
 ## Evaluation
 ### Sensitivity of Time Bubble Parameters
-The two parameters *W<sub>timeout</sub>* and *N<sub>clock</sub>* for time bubbling have trade-off performance. This trade-off also depends on each server program as well as its performance workload. A smaller *W<sub>timeout</sub>* means the DMT scheduler can wait less time and then proceed with granted logical clocks with inserted time bubbles, but it also means that more bubbles and thus more PAXOS consensus are involved. A smaller value also means time bubbling runs similar to a per-request consensus approach.
+The two parameters *W<sub>timeout</sub>* and *N<sub>clock</sub>* for time bubbling have trade-off performance. This trade-off also depends on each server program as well as its performance workload. A smaller *W<sub>timeout</sub>* means the DMT scheduler can wait less time **and then proceed with granted logical clocks with inserted time bubbles**, but it also means that more bubbles and thus more PAXOS consensus are involved. A smaller value also means time bubbling runs similar to a per-request consensus approach.
 
 The *N<sub>clock</sub>* parameter also faces trade-off on performance. A smaller value means that servers can exhaust clocks in a time bubble sooner, but if a server does lots of Pthreads synchronizations to process a request, more time bubbles and thus more PAXOS consensus are involved.
